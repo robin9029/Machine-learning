@@ -1,0 +1,120 @@
+'''
+Please go through for more details about MPG Data https://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.names
+
+Pridict the Miles per galon by applying linera regression
+
+'''
+
+# Import relevant python libraries and sklearn linear_model 
+import requests, io
+import pandas as pd
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import seaborn as sns 
+from scipy.stats import norm
+from scipy import stats 
+import  warnings
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+warnings.filterwarnings('ignore')
+%matplotlib inline
+
+URL = 'https://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data'
+
+
+urlData = requests.get(URL).content                                                 #get the content text from URL
+df = pd.read_csv(io.StringIO(urlData.decode('utf-8')), sep="\s+",header=None)       #convert TEXT with spaces to CSV column
+print("Extracted Inputfrom URL: ")
+print(df.head())
+
+
+# Identify target variable and independent variable.
+'''
+Target Variable :MPG
+Independent Variable : 'cylinders','displacement','horsepower','weight','acceleration',
+            'model year', 'origin', 'car name'
+
+'''
+# Prepare the data file 
+df.columns = ['mpg','cylinders','displacement','horsepower','weight','acceleration',
+              'model year', 'origin', 'car name']
+
+print("Adding Column name : ")
+print(df.head())
+df = df.drop('car name', axis=1)   #as of now car name is require for linear regression
+
+
+# column "origin" is where car comes from  #ordinal categorical variable 
+df['origin'] = df['origin'].replace({1: 'america', 2: 'europe', 3: 'asia'})
+df = pd.get_dummies(df, columns=['origin'])     #dummy binary variables
+
+print("Adding dummy for Origin  : ")
+print(df.head())
+
+#missing values for horsepower
+
+df.horsepower.unique()
+df = df[df.horsepower != '?']
+df.horsepower = df.horsepower.astype('float')
+print ("data Cleaning : ")
+print("data after removing   ? : ")
+print(df.head())
+
+
+
+#Ex Split the file into train [80%] and test [20%] data  
+#X = df.drop('mpg', axis=1)                          #drop 1st row not required
+#lets try "weight" VS mpg 
+X=  df[['weight']]
+y = df[['mpg']]                                     # Target Variable 
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=1)
+
+#linear regression & Train the model using the training sets
+
+regression_model = LinearRegression()                           #LinearRegression
+regression_model.fit(X_train, y_train)                          #fitting Training set   
+
+#Display the coefficients coef, intercept and residues 
+#coefficients coef
+for idx, col_name in enumerate(X_train.columns):
+    print("The coefficient for {} is {}".format(col_name, regression_model.coef_[0][idx]))
+
+#intercept
+intercept = regression_model.intercept_[0]
+print("The intercept for our model is {}".format(intercept))
+
+#Equation
+print ("Y= mX+C   where C= Intercept, m =Coefficient")
+print (" mpg={} {}*weight".format(intercept,regression_model.coef_[0][0]) )
+
+#Predict using test data
+y_predict = regression_model.predict(X_test)
+
+#residues =Actual - prediction 
+
+residuals = y_test - y_predict 
+residuals.describe()
+
+#Accuracy check using the R Square 
+
+#R-square  determined using our test set and the model’s score method.
+print("R-SQUARE : ",regression_model.score(X_test, y_test))
+#So in our model, 82.85% of the variability in Y can be explained using X
+
+#Accuracy
+#Cost Function
+regression_model_mse = mean_squared_error(y_predict, y_test)
+
+print("regression_model_mse : ",regression_model_mse)
+
+print ("Avearge of {} mpg away from ground truth mpg when making predictions on our test set".format(math.sqrt(regression_model_mse)))
+#So we are an average of 3.50 mpg away from the Actual mpg when making predictions on our test set
+
+#scatter plot the data points and the best fit line 
+df.plot(kind="scatter",x="weight",y="mpg")
+plt.plot( X_test["weight"].values,      # Explanitory variable
+         y_predict[:,-1] ,  # Predicted values
+         color="blue")
